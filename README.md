@@ -1,20 +1,20 @@
-# Web Wrapper - Made with Expo/React Native
+# Turbo C++ Web Client for Mobile - Made with Expo/React Native
 
 ## Intro
-Simple web wrapper to convert your mobile-friendly website into a mobile app with Android Support(Maybe even iOS, not tested)
 
-Change URL and Domain in App.js to your site's login/home page
+Turbo C++ Web - Mobile client
 
+Warning: WIP and many keys don't work
 ## Setup Instructions
 
 ### Clone this repo
 
 You can do this using:
 ```
-git clone https://github.com/sounddrill31/web-wrapper-template-expo wrapper
+git clone https://github.com/sounddrill31/TurboCppMobile TurboCppMobile
 ```
 
-Now, enter the directory using `cd wrapper`
+Now, enter the directory using `cd TurboCppMobile`
 ### Set up nvm 
 
 You can do this by following [these](https://github.com/nvm-sh/nvm#installing-and-updating) instructions
