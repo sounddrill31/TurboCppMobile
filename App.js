@@ -1,7 +1,7 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Animated, Dimensions, Keyboard, Text, TextInput } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Ionicons } from '@expo/vector-icons';
+import { FontAwesome } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
@@ -102,8 +102,8 @@ export default function App() {
     },
     menuContainer: {
       position: 'absolute',
-      top: Constants.statusBarHeight,
-      left: 10,
+      top: Constants.statusBarHeight + 10,
+      right: 10,
       zIndex: 1000,
     },
     menuTrigger: {
@@ -167,6 +167,12 @@ export default function App() {
       case 'output':
         injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F5", keyCode: 116, altKey: true}));');
         break;
+      case 'zoomIn':
+        injectJavaScript('document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) * 1.1;');
+        break;
+      case 'zoomOut':
+        injectJavaScript('document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) / 1.1;');
+        break;
     }
   };
 
@@ -187,42 +193,21 @@ export default function App() {
         <View style={styles.menuContainer}>
           <Menu>
             <MenuTrigger style={styles.menuTrigger}>
-              <Ionicons name="menu" size={24} color={theme.text} />
+              <FontAwesome name="bars" size={24} color={theme.text} />
             </MenuTrigger>
             <MenuOptions style={styles.menuOptions}>
-              <Menu>
-                <MenuTrigger>
-                  <MenuOption style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>File</Text>
-                  </MenuOption>
-                </MenuTrigger>
-                <MenuOptions>
-                  <MenuOption onSelect={() => handleMenuAction('open')} style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Open (F3)</Text>
-                  </MenuOption>
-                  <MenuOption onSelect={() => handleMenuAction('save')} style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Save (F2)</Text>
-                  </MenuOption>
-                  <MenuOption onSelect={() => handleMenuAction('quit')} style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Quit</Text>
-                  </MenuOption>
-                </MenuOptions>
-              </Menu>
-              <Menu>
-                <MenuTrigger>
-                  <MenuOption style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Edit</Text>
-                  </MenuOption>
-                </MenuTrigger>
-                <MenuOptions>
-                  <MenuOption onSelect={() => handleMenuAction('undo')} style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Undo (Alt+Backspace)</Text>
-                  </MenuOption>
-                  <MenuOption onSelect={() => handleMenuAction('redo')} style={styles.menuOption}>
-                    <Text style={styles.menuOptionText}>Redo (Shift+Alt+Backspace)</Text>
-                  </MenuOption>
-                </MenuOptions>
-              </Menu>
+              <MenuOption onSelect={() => handleMenuAction('open')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Open (F3)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('save')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Save (F2)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('undo')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Undo (Alt+Backspace)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('redo')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Redo (Shift+Alt+Backspace)</Text>
+              </MenuOption>
               <MenuOption onSelect={() => handleMenuAction('compile')} style={styles.menuOption}>
                 <Text style={styles.menuOptionText}>Compile (Alt+F9)</Text>
               </MenuOption>
@@ -231,6 +216,15 @@ export default function App() {
               </MenuOption>
               <MenuOption onSelect={() => handleMenuAction('output')} style={styles.menuOption}>
                 <Text style={styles.menuOptionText}>Output (Alt+F5)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('zoomIn')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Zoom In</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('zoomOut')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Zoom Out</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('quit')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Quit</Text>
               </MenuOption>
             </MenuOptions>
           </Menu>
@@ -246,8 +240,8 @@ export default function App() {
           style={styles.toggleButton}
           onPress={toggleKeyboard}
         >
-          <Ionicons 
-            name="keyboard" 
+          <FontAwesome 
+            name="keyboard-o" 
             size={TOGGLE_ICON_SIZE} 
             color={theme.text} 
           />
