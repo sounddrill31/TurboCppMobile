@@ -18,6 +18,8 @@ const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
 export default function App() {
   const webViewRef = useRef(null);
+  const [tempInput, setTempInput] = useState('');
+  const tempInputRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(HOME_URL);
   const colorScheme = useColorScheme();
@@ -87,7 +89,37 @@ export default function App() {
     }
   }, [canGoBack]);
 
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
+
   const isLandscape = orientation === 'LANDSCAPE_LEFT' || orientation === 'LANDSCAPE_RIGHT';
+
+  const handleTempInputChange = (text) => {
+    if (text.length > tempInput.length) {
+      const newChar = text.slice(-1);
+      injectJavaScript(`document.execCommand("insertText", false, "${newChar}");`);
+    } else if (text.length < tempInput.length) {
+      injectJavaScript('document.execCommand("delete", false, "");');
+    }
+    setTempInput(text);
+  };
+
+  const focusTempInput = () => {
+    tempInputRef.current?.focus();
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -118,6 +150,12 @@ export default function App() {
     menuOptionText: {
       color: theme.text,
     },
+    tempInput: {
+      position: 'absolute',
+      opacity: 0,
+      height: 1,
+      width: '100%',
+    },
     toggleButton: {
       position: 'absolute',
       right: 20,
@@ -129,11 +167,6 @@ export default function App() {
       alignItems: 'center',
       backgroundColor: theme.toggleButtonBackground,
       zIndex: 1000,
-    },
-    hiddenInput: {
-      position: 'absolute',
-      height: 0,
-      width: 0,
     },
   });
 
@@ -180,7 +213,7 @@ export default function App() {
     if (isKeyboardVisible) {
       Keyboard.dismiss();
     } else {
-      inputRef.current.focus();
+      tempInputRef.current?.focus();
     }
   };
 
@@ -226,6 +259,7 @@ export default function App() {
             </MenuOptions>
           </Menu>
         </View>
+
         <WebView
           ref={webViewRef}
           source={{ uri: currentUrl }}
@@ -234,22 +268,29 @@ export default function App() {
           onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          onTouchStart={focusTempInput}
         />
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={toggleKeyboard}
+        <TextInput
+          ref={tempInputRef}
+          style={styles.tempInput}
+          value={tempInput}
+          onChangeText={handleTempInputChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          autoCompleteType="off"
+          textContentType="none"
+          keyboardType="visible-password"
+        />
+       <TouchableOpacity
+         style={styles.toggleButton}
+         onPress={toggleKeyboard}
         >
           <FontAwesome 
-            name="keyboard-o" 
+            name="keyboard-o"
             size={TOGGLE_ICON_SIZE} 
             color={theme.text} 
           />
         </TouchableOpacity>
-        <TextInput
-          ref={inputRef}
-          style={styles.hiddenInput}
-          onBlur={() => setKeyboardVisible(false)}
-        />
       </View>
     </MenuProvider>
   );
