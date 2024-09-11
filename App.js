@@ -143,6 +143,12 @@ export default function App() {
 
   const handleMenuAction = (action) => {
     switch (action) {
+      case 'home':
+        webViewRef.current.injectJavaScript(`
+          window.location.href = '${HOME_URL}';
+          true;
+        `);
+        break;
       case 'open':
         injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F3", keyCode: 114}));');
         break;
@@ -167,12 +173,6 @@ export default function App() {
       case 'output':
         injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F5", keyCode: 116, altKey: true}));');
         break;
-      case 'zoomIn':
-        injectJavaScript('document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) * 1.1;');
-        break;
-      case 'zoomOut':
-        injectJavaScript('document.body.style.zoom = (parseFloat(document.body.style.zoom) || 1) / 1.1;');
-        break;
     }
   };
 
@@ -196,6 +196,9 @@ export default function App() {
               <FontAwesome name="bars" size={24} color={theme.text} />
             </MenuTrigger>
             <MenuOptions style={styles.menuOptions}>
+              <MenuOption onSelect={() => handleMenuAction('home')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Home</Text>
+              </MenuOption>
               <MenuOption onSelect={() => handleMenuAction('open')} style={styles.menuOption}>
                 <Text style={styles.menuOptionText}>Open (F3)</Text>
               </MenuOption>
@@ -217,12 +220,6 @@ export default function App() {
               <MenuOption onSelect={() => handleMenuAction('output')} style={styles.menuOption}>
                 <Text style={styles.menuOptionText}>Output (Alt+F5)</Text>
               </MenuOption>
-              <MenuOption onSelect={() => handleMenuAction('zoomIn')} style={styles.menuOption}>
-                <Text style={styles.menuOptionText}>Zoom In</Text>
-              </MenuOption>
-              <MenuOption onSelect={() => handleMenuAction('zoomOut')} style={styles.menuOption}>
-                <Text style={styles.menuOptionText}>Zoom Out</Text>
-              </MenuOption>
               <MenuOption onSelect={() => handleMenuAction('quit')} style={styles.menuOption}>
                 <Text style={styles.menuOptionText}>Quit</Text>
               </MenuOption>
@@ -235,6 +232,8 @@ export default function App() {
           style={styles.webview}
           onNavigationStateChange={handleNavigationStateChange}
           onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
         />
         <TouchableOpacity
           style={styles.toggleButton}
