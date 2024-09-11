@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Wrapper",
-    "slug": "Wrapper",
+    "name": "TurboCPPMobile",
+    "slug": "turbo",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
@@ -12,7 +12,8 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zeusinstitute.turbo"
     },
     "android": {
       "adaptiveIcon": {
