@@ -27,7 +27,7 @@ nvm use node
 ### Install Deps
 
 ```
-npx expo install react-native-webview @expo/vector-icons expo-constants expo-linking expo-screen-orientation
+npx expo install react-native-webview @expo/vector-icons expo-constants expo-linking expo-screen-orientation react-native-popup-menu
 ```
 
 ### Run App

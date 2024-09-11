@@ -1,19 +1,18 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Animated, Dimensions } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Animated, Dimensions, Keyboard, Text, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
 
-const HOME_URL = 'https://github.com/login';
-const HOME_DOMAIN = 'github.com';
+const HOME_URL = 'https://sounddrill31.github.io/TurboCPP-Web';
+const HOME_DOMAIN = 'sounddrill31.github.io';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768; // iPad mini is 768x1024
+const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768;
 
-const BASE_BUTTON_SIZE = IS_LARGE_DEVICE ? 60 : 50;
-const BASE_ICON_SIZE = IS_LARGE_DEVICE ? 32 : 28;
 const TOGGLE_BUTTON_SIZE = IS_LARGE_DEVICE ? 70 : 60;
 const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
@@ -22,30 +21,16 @@ export default function App() {
   const [canGoBack, setCanGoBack] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(HOME_URL);
   const colorScheme = useColorScheme();
-  const [isBarVisible, setIsBarVisible] = useState(false);
-  const barHeight = useRef(new Animated.Value(BASE_BUTTON_SIZE + 20)).current;
-  const toggleButtonBottom = useRef(new Animated.Value(20)).current;
   const [orientation, setOrientation] = useState('PORTRAIT');
+  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
   const isDarkMode = colorScheme === 'dark';
 
   const theme = {
-    barBackground: isDarkMode ? '#1E1E1E' : '#F5F5F5',
-    buttonBackground: isDarkMode ? '#333333' : '#E0E0E0',
-    iconColor: isDarkMode ? '#FFFFFF' : '#000000',
+    background: isDarkMode ? '#1E1E1E' : '#F5F5F5',
+    text: isDarkMode ? '#FFFFFF' : '#000000',
+    menuBackground: isDarkMode ? '#333333' : '#E0E0E0',
     toggleButtonBackground: isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'rgba(245, 245, 245, 0.8)',
-  };
-
-  // Safely render Ionicons
-  const renderIcon = (iconName, size, color) => {
-    const name = iconMap[iconName] || iconName;
-    return (
-      <Ionicons
-        name={name}
-        size={size}
-        color={color}
-      />
-    );
   };
 
   const handleNavigationStateChange = (navState) => {
@@ -67,49 +52,35 @@ export default function App() {
     return true;
   }, []);
 
-  const goBack = () => {
-    if (webViewRef.current && canGoBack) {
-      webViewRef.current.goBack();
-      return true;
-    }
-    return false;
-  };
-
-  const goHome = () => {
-    if (webViewRef.current) {
-      setCurrentUrl(HOME_URL);
-      webViewRef.current.reload();
-    }
-  };
-
-  const barAnimation = useRef(new Animated.Value(0)).current;
-
-  const toggleBar = () => {
-    const newIsBarVisible = !isBarVisible;
-    setIsBarVisible(newIsBarVisible);
-    
-    Animated.spring(barAnimation, {
-      toValue: newIsBarVisible ? 1 : 0,
-      tension: 50,
-      friction: 7,
-      useNativeDriver: true,
-    }).start();
-  };
-
   useEffect(() => {
     const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
       setOrientation(event.orientationInfo.orientation);
     });
 
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setKeyboardVisible(false)
+    );
+
     return () => {
       ScreenOrientation.removeOrientationChangeListener(subscription);
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
     };
   }, []);
 
   useEffect(() => {
     if (Platform.OS === 'android') {
       const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-        return goBack();
+        if (canGoBack) {
+          webViewRef.current.goBack();
+          return true;
+        }
+        return false;
       });
 
       return () => backHandler.remove();
@@ -121,6 +92,7 @@ export default function App() {
   const styles = StyleSheet.create({
     container: {
       flex: 1,
+      backgroundColor: theme.background,
     },
     statusBarPlaceholder: {
       height: Constants.statusBarHeight,
@@ -128,131 +100,164 @@ export default function App() {
     webview: {
       flex: 1,
     },
-    bottomBar: {
-      flexDirection: isLandscape ? 'column' : 'row',
-      justifyContent: 'space-around',
-      alignItems: 'center',
-      borderTopLeftRadius: 25,
-      borderTopRightRadius: 25,
+    menuContainer: {
       position: 'absolute',
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: BASE_BUTTON_SIZE + 20,
-      paddingVertical: Platform.OS === 'ios' ? 30 : 10, // Added vertical padding for centering
-      paddingBottom: Platform.OS === 'ios' ? 30 : 10, // Adjusted for iOS
-      overflow: 'hidden',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.1,
-          shadowRadius: 3,
-        },
-        android: {
-          elevation: 8,
-        },
-      }),
+      top: Constants.statusBarHeight,
+      left: 10,
+      zIndex: 1000,
     },
-    button: {
-      width: BASE_BUTTON_SIZE,
-      height: BASE_BUTTON_SIZE,
-      borderRadius: BASE_BUTTON_SIZE / 2,
-      justifyContent: 'center',
-      alignItems: 'center',
-      ...Platform.select({
-        ios: {
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 2,
-        },
-        android: {
-          elevation: 3,
-        },
-      }),
+    menuTrigger: {
+      padding: 10,
+    },
+    menuOptions: {
+      backgroundColor: theme.menuBackground,
+    },
+    menuOption: {
+      padding: 10,
+    },
+    menuOptionText: {
+      color: theme.text,
     },
     toggleButton: {
       position: 'absolute',
       right: 20,
+      bottom: 20,
       width: TOGGLE_BUTTON_SIZE,
       height: TOGGLE_BUTTON_SIZE,
-      borderRadius: 24, // Modified to have curved corners
+      borderRadius: TOGGLE_BUTTON_SIZE / 2,
       justifyContent: 'center',
       alignItems: 'center',
+      backgroundColor: theme.toggleButtonBackground,
       zIndex: 1000,
+    },
+    hiddenInput: {
+      position: 'absolute',
+      height: 0,
+      width: 0,
     },
   });
 
-  const barTranslateY = barAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [BASE_BUTTON_SIZE + 10, 0],
-  });
+  const injectJavaScript = (code) => {
+    webViewRef.current.injectJavaScript(code);
+  };
 
-  const barScale = barAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.9, 1],
-  });
+  const handleMenuAction = (action) => {
+    switch (action) {
+      case 'open':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F3", keyCode: 114}));');
+        break;
+      case 'save':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F2", keyCode: 113}));');
+        break;
+      case 'quit':
+        BackHandler.exitApp();
+        break;
+      case 'undo':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "Backspace", keyCode: 8, altKey: true}));');
+        break;
+      case 'redo':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "Backspace", keyCode: 8, altKey: true, shiftKey: true}));');
+        break;
+      case 'compile':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F9", keyCode: 120, altKey: true}));');
+        break;
+      case 'run':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F9", keyCode: 120, ctrlKey: true}));');
+        break;
+      case 'output':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F5", keyCode: 116, altKey: true}));');
+        break;
+    }
+  };
 
-  const toggleButtonTranslateY = barAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -(BASE_BUTTON_SIZE + 10)],
-  });
+  const toggleKeyboard = () => {
+    if (isKeyboardVisible) {
+      Keyboard.dismiss();
+    } else {
+      inputRef.current.focus();
+    }
+  };
+
+  const inputRef = useRef(null);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.statusBarPlaceholder} />
-      <WebView
-        ref={webViewRef}
-        source={{ uri: currentUrl }}
-        style={styles.webview}
-        onNavigationStateChange={handleNavigationStateChange}
-        onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-      />
-      <Animated.View style={[
-        styles.bottomBar,
-        { 
-          transform: [
-            { translateY: barTranslateY },
-            { scale: barScale }
-          ],
-          backgroundColor: theme.barBackground 
-        }
-      ]}>
+    <MenuProvider>
+      <View style={styles.container}>
+        <View style={styles.statusBarPlaceholder} />
+        <View style={styles.menuContainer}>
+          <Menu>
+            <MenuTrigger style={styles.menuTrigger}>
+              <Ionicons name="menu" size={24} color={theme.text} />
+            </MenuTrigger>
+            <MenuOptions style={styles.menuOptions}>
+              <Menu>
+                <MenuTrigger>
+                  <MenuOption style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>File</Text>
+                  </MenuOption>
+                </MenuTrigger>
+                <MenuOptions>
+                  <MenuOption onSelect={() => handleMenuAction('open')} style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Open (F3)</Text>
+                  </MenuOption>
+                  <MenuOption onSelect={() => handleMenuAction('save')} style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Save (F2)</Text>
+                  </MenuOption>
+                  <MenuOption onSelect={() => handleMenuAction('quit')} style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Quit</Text>
+                  </MenuOption>
+                </MenuOptions>
+              </Menu>
+              <Menu>
+                <MenuTrigger>
+                  <MenuOption style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Edit</Text>
+                  </MenuOption>
+                </MenuTrigger>
+                <MenuOptions>
+                  <MenuOption onSelect={() => handleMenuAction('undo')} style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Undo (Alt+Backspace)</Text>
+                  </MenuOption>
+                  <MenuOption onSelect={() => handleMenuAction('redo')} style={styles.menuOption}>
+                    <Text style={styles.menuOptionText}>Redo (Shift+Alt+Backspace)</Text>
+                  </MenuOption>
+                </MenuOptions>
+              </Menu>
+              <MenuOption onSelect={() => handleMenuAction('compile')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Compile (Alt+F9)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('run')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Run (Ctrl+F9)</Text>
+              </MenuOption>
+              <MenuOption onSelect={() => handleMenuAction('output')} style={styles.menuOption}>
+                <Text style={styles.menuOptionText}>Output (Alt+F5)</Text>
+              </MenuOption>
+            </MenuOptions>
+          </Menu>
+        </View>
+        <WebView
+          ref={webViewRef}
+          source={{ uri: currentUrl }}
+          style={styles.webview}
+          onNavigationStateChange={handleNavigationStateChange}
+          onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
+        />
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.buttonBackground }]}
-          onPress={goBack}
-          disabled={!canGoBack}
+          style={styles.toggleButton}
+          onPress={toggleKeyboard}
         >
           <Ionicons 
-            name={Platform.OS === 'ios' ? 'chevron-back' : 'arrow-back'} 
-            size={BASE_ICON_SIZE} 
-            color={canGoBack ? theme.iconColor : theme.iconColor + '66'} 
-          />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: theme.buttonBackground }]}
-          onPress={goHome}
-        >
-          <Ionicons name="home" size={BASE_ICON_SIZE} color={theme.iconColor} />
-        </TouchableOpacity>
-      </Animated.View>
-      <Animated.View style={[
-        styles.toggleButton,
-        { 
-          transform: [{ translateY: toggleButtonTranslateY }],
-          backgroundColor: theme.toggleButtonBackground,
-          bottom: 20,
-        }
-      ]}>
-        <TouchableOpacity onPress={toggleBar}>
-          <Ionicons 
-            name={isBarVisible ? (Platform.OS === 'ios' ? 'chevron-down' : 'arrow-down') : (Platform.OS === 'ios' ? 'chevron-up' : 'arrow-up')} 
+            name="keyboard" 
             size={TOGGLE_ICON_SIZE} 
-            color={theme.iconColor} 
+            color={theme.text} 
           />
         </TouchableOpacity>
-      </Animated.View>
-    </View>
+        <TextInput
+          ref={inputRef}
+          style={styles.hiddenInput}
+          onBlur={() => setKeyboardVisible(false)}
+        />
+      </View>
+    </MenuProvider>
   );
 }
