@@ -7,8 +7,8 @@ import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
 
-const HOME_URL = 'https://sounddrill31.github.io/TurboCPP-Web';
-const HOME_DOMAIN = 'sounddrill31.github.io';
+const HOME_URL = 'https://turboc.pages.dev';
+const HOME_DOMAIN = 'turboc.pages.dev';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768;
@@ -89,28 +89,40 @@ export default function App() {
     }
   }, [canGoBack]);
 
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => setKeyboardVisible(true)
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => setKeyboardVisible(false)
-    );
+  const injectJavaScript = (code) => {
+    webViewRef.current.injectJavaScript(code);
+  };
 
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
-
-  const isLandscape = orientation === 'LANDSCAPE_LEFT' || orientation === 'LANDSCAPE_RIGHT';
+/*  const keyboardMap = {
+    "'": { char: '"', keyCode: 222 },
+    '"': { char: "'", keyCode: 222 },
+    '`': { char: '~', keyCode: 192 },
+    '~': { char: '`', keyCode: 192 },
+    '@': { char: '"', keyCode: 50 },  // For UK layout
+    '#': { char: '£', keyCode: 51 },  // For UK layout
+    '\\': { char: '|', keyCode: 220 },
+    '|': { char: '\\', keyCode: 220 },
+  };*/
+  const keyboardMap = {
+    "~": { char: '"', keyCode: 222 },
+    '`': { char: "'", keyCode: 222 },
+  };
 
   const handleTempInputChange = (text) => {
     if (text.length > tempInput.length) {
       const newChar = text.slice(-1);
-      injectJavaScript(`document.execCommand("insertText", false, "${newChar}");`);
+      const mappedChar = keyboardMap[newChar] || { char: newChar, keyCode: newChar.charCodeAt(0) };
+
+      injectJavaScript(`
+        var event = new KeyboardEvent('keydown', {
+          key: '${mappedChar.char}',
+          keyCode: ${mappedChar.keyCode},
+          which: ${mappedChar.keyCode},
+          bubbles: true
+        });
+        document.dispatchEvent(event);
+        document.execCommand("insertText", false, "${mappedChar.char}");
+      `);
     } else if (text.length < tempInput.length) {
       injectJavaScript('document.execCommand("delete", false, "");');
     }
@@ -170,41 +182,34 @@ export default function App() {
     },
   });
 
-  const injectJavaScript = (code) => {
-    webViewRef.current.injectJavaScript(code);
-  };
-
   const handleMenuAction = (action) => {
     switch (action) {
       case 'home':
-        webViewRef.current.injectJavaScript(`
-          window.location.href = '${HOME_URL}';
-          true;
-        `);
+        webViewRef.current.loadUrl(HOME_URL);
         break;
       case 'open':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F3", keyCode: 114}));');
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F3", keyCode: 114 }));');
         break;
       case 'save':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F2", keyCode: 113}));');
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", keyCode: 113 }));');
+        break;
+      case 'undo':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, altKey: true }));');
+        break;
+      case 'redo':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));');
+        break;
+      case 'compile':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, altKey: true }));');
+        break;
+      case 'run':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, ctrlKey: true }));');
+        break;
+      case 'output':
+        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", keyCode: 116, altKey: true }));');
         break;
       case 'quit':
         BackHandler.exitApp();
-        break;
-      case 'undo':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "Backspace", keyCode: 8, altKey: true}));');
-        break;
-      case 'redo':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "Backspace", keyCode: 8, altKey: true, shiftKey: true}));');
-        break;
-      case 'compile':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F9", keyCode: 120, altKey: true}));');
-        break;
-      case 'run':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F9", keyCode: 120, ctrlKey: true}));');
-        break;
-      case 'output':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", {key: "F5", keyCode: 116, altKey: true}));');
         break;
     }
   };
@@ -216,8 +221,6 @@ export default function App() {
       tempInputRef.current?.focus();
     }
   };
-
-  const inputRef = useRef(null);
 
   return (
     <MenuProvider>
