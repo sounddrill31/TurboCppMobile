@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FontAwesome } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -18,13 +18,13 @@ const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
 export default function App() {
   const webViewRef = useRef(null);
+  const [tempInput, setTempInput] = useState('');
+  const tempInputRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(HOME_URL);
   const colorScheme = useColorScheme();
   const [orientation, setOrientation] = useState('PORTRAIT');
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const [isKeyboardToggling, setIsKeyboardToggling] = useState(false);
-  const [isKeyboardFocused, setIsKeyboardFocused] = useState(false);
 
   const isDarkMode = colorScheme === 'dark';
 
@@ -93,6 +93,46 @@ export default function App() {
     webViewRef.current.injectJavaScript(code);
   };
 
+/*  const keyboardMap = {
+    "'": { char: '"', keyCode: 222 },
+    '"': { char: "'", keyCode: 222 },
+    '`': { char: '~', keyCode: 192 },
+    '~': { char: '`', keyCode: 192 },
+    '@': { char: '"', keyCode: 50 },  // For UK layout
+    '#': { char: '£', keyCode: 51 },  // For UK layout
+    '\\': { char: '|', keyCode: 220 },
+    '|': { char: '\\', keyCode: 220 },
+  };*/
+  const keyboardMap = {
+    "~": { char: '"', keyCode: 222 },
+    '`': { char: "'", keyCode: 222 },
+  };
+
+  const handleTempInputChange = (text) => {
+    if (text.length > tempInput.length) {
+      const newChar = text.slice(-1);
+      const mappedChar = keyboardMap[newChar] || { char: newChar, keyCode: newChar.charCodeAt(0) };
+
+      injectJavaScript(`
+        var event = new KeyboardEvent('keydown', {
+          key: '${mappedChar.char}',
+          keyCode: ${mappedChar.keyCode},
+          which: ${mappedChar.keyCode},
+          bubbles: true
+        });
+        document.dispatchEvent(event);
+        document.execCommand("insertText", false, "${mappedChar.char}");
+      `);
+    } else if (text.length < tempInput.length) {
+      injectJavaScript('document.execCommand("delete", false, "");');
+    }
+    setTempInput(text);
+  };
+
+  const focusTempInput = () => {
+    tempInputRef.current?.focus();
+  };
+
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -121,6 +161,12 @@ export default function App() {
     },
     menuOptionText: {
       color: theme.text,
+    },
+    tempInput: {
+      position: 'absolute',
+      opacity: 0,
+      height: 1,
+      width: '100%',
     },
     toggleButton: {
       position: 'absolute',
@@ -168,63 +214,13 @@ export default function App() {
     }
   };
 
-  const toggleKeyboard = useCallback(() => {
-    if (isKeyboardToggling) return;
-
-    setIsKeyboardToggling(true);
-
+  const toggleKeyboard = () => {
     if (isKeyboardVisible) {
       Keyboard.dismiss();
     } else {
-      injectJavaScript(`
-        (function() {
-          var inputElement = document.getElementById('keyboardFocusInput');
-          if (!inputElement) {
-            inputElement = document.createElement('input');
-            inputElement.id = 'keyboardFocusInput';
-            inputElement.style.position = 'fixed';
-            inputElement.style.bottom = '0';
-            inputElement.style.left = '0';
-            inputElement.style.opacity = '0';
-            document.body.appendChild(inputElement);
-          }
-          inputElement.focus();
-        })();
-      `);
+      tempInputRef.current?.focus();
     }
-
-    setTimeout(() => {
-      setIsKeyboardToggling(false);
-    }, 300); // Debounce time
-  }, [isKeyboardToggling, isKeyboardVisible]);
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener(
-      'keyboardDidShow',
-      () => {
-        setKeyboardVisible(true);
-        setIsKeyboardFocused(true);
-      }
-    );
-    const keyboardDidHideListener = Keyboard.addListener(
-      'keyboardDidHide',
-      () => {
-        setKeyboardVisible(false);
-        setIsKeyboardFocused(false);
-        injectJavaScript(`
-          var inputElement = document.getElementById('keyboardFocusInput');
-          if (inputElement) {
-            inputElement.blur();
-          }
-        `);
-      }
-    );
-
-    return () => {
-      keyboardDidShowListener.remove();
-      keyboardDidHideListener.remove();
-    };
-  }, []);
+  };
 
   return (
     <MenuProvider>
@@ -275,29 +271,22 @@ export default function App() {
           onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
           javaScriptEnabled={true}
           domStorageEnabled={true}
-          onMessage={(event) => {
-            if (event.nativeEvent.data === 'focusDetected' && !isKeyboardVisible) {
-              toggleKeyboard();
-            }
-          }}
-          injectedJavaScript={`
-            (function() {
-              var lastFocusTime = 0;
-              document.addEventListener('focus', function(e) {
-                var now = Date.now();
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                  if (now - lastFocusTime > 300) { // Debounce time
-                    window.ReactNativeWebView.postMessage('focusDetected');
-                    lastFocusTime = now;
-                  }
-                }
-              }, true);
-            })();
-          `}
+          onTouchStart={focusTempInput}
         />
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={toggleKeyboard}
+        <TextInput
+          ref={tempInputRef}
+          style={styles.tempInput}
+          value={tempInput}
+          onChangeText={handleTempInputChange}
+          autoCorrect={false}
+          autoCapitalize="none"
+          autoCompleteType="off"
+          textContentType="none"
+          keyboardType="visible-password"
+        />
+       <TouchableOpacity
+         style={styles.toggleButton}
+         onPress={toggleKeyboard}
         >
           <FontAwesome 
             name="keyboard-o"
@@ -306,6 +295,6 @@ export default function App() {
           />
         </TouchableOpacity>
       </View>
-      </MenuProvider>
-    );
-  }
+    </MenuProvider>
+  );
+}
