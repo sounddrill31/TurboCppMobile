@@ -1,5 +1,5 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FontAwesome } from '@expo/vector-icons';
 import Constants from 'expo-constants';
@@ -18,8 +18,6 @@ const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
 export default function App() {
   const webViewRef = useRef(null);
-  const [tempInput, setTempInput] = useState('');
-  const tempInputRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(HOME_URL);
   const colorScheme = useColorScheme();
@@ -93,46 +91,6 @@ export default function App() {
     webViewRef.current.injectJavaScript(code);
   };
 
-/*  const keyboardMap = {
-    "'": { char: '"', keyCode: 222 },
-    '"': { char: "'", keyCode: 222 },
-    '`': { char: '~', keyCode: 192 },
-    '~': { char: '`', keyCode: 192 },
-    '@': { char: '"', keyCode: 50 },  // For UK layout
-    '#': { char: '£', keyCode: 51 },  // For UK layout
-    '\\': { char: '|', keyCode: 220 },
-    '|': { char: '\\', keyCode: 220 },
-  };*/
-  const keyboardMap = {
-    "~": { char: '"', keyCode: 222 },
-    '`': { char: "'", keyCode: 222 },
-  };
-
-  const handleTempInputChange = (text) => {
-    if (text.length > tempInput.length) {
-      const newChar = text.slice(-1);
-      const mappedChar = keyboardMap[newChar] || { char: newChar, keyCode: newChar.charCodeAt(0) };
-
-      injectJavaScript(`
-        var event = new KeyboardEvent('keydown', {
-          key: '${mappedChar.char}',
-          keyCode: ${mappedChar.keyCode},
-          which: ${mappedChar.keyCode},
-          bubbles: true
-        });
-        document.dispatchEvent(event);
-        document.execCommand("insertText", false, "${mappedChar.char}");
-      `);
-    } else if (text.length < tempInput.length) {
-      injectJavaScript('document.execCommand("delete", false, "");');
-    }
-    setTempInput(text);
-  };
-
-  const focusTempInput = () => {
-    tempInputRef.current?.focus();
-  };
-
   const styles = StyleSheet.create({
     container: {
       flex: 1,
@@ -162,12 +120,6 @@ export default function App() {
     menuOptionText: {
       color: theme.text,
     },
-    tempInput: {
-      position: 'absolute',
-      opacity: 0,
-      height: 1,
-      width: '100%',
-    },
     toggleButton: {
       position: 'absolute',
       right: 20,
@@ -188,25 +140,25 @@ export default function App() {
         webViewRef.current.loadUrl(HOME_URL);
         break;
       case 'open':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F3", keyCode: 114 }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F3", keyCode: 114 })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F3", keyCode: 114 }));');
         break;
       case 'save':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", keyCode: 113 }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", keyCode: 113 })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F2", keyCode: 113 }));');
         break;
       case 'undo':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, altKey: true }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, altKey: true }));');
         break;
       case 'redo':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, shiftKey: true, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));');
         break;
       case 'compile':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, altKey: true }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, altKey: true }));');
         break;
       case 'run':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, ctrlKey: true }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, ctrlKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, ctrlKey: true }));');
         break;
       case 'output':
-        injectJavaScript('document.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", keyCode: 116, altKey: true }));');
+        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", keyCode: 116, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F5", keyCode: 116, altKey: true }));');
         break;
       case 'quit':
         BackHandler.exitApp();
@@ -218,7 +170,19 @@ export default function App() {
     if (isKeyboardVisible) {
       Keyboard.dismiss();
     } else {
-      tempInputRef.current?.focus();
+      // Show keyboard
+      injectJavaScript(`
+        var inputElement = document.createElement('input');
+        inputElement.style.position = 'fixed';
+        inputElement.style.bottom = '0';
+        inputElement.style.left = '0';
+        inputElement.style.opacity = '0';
+        document.body.appendChild(inputElement);
+        inputElement.focus();
+        setTimeout(() => {
+          document.body.removeChild(inputElement);
+        }, 100);
+      `);
     }
   };
 
@@ -271,22 +235,24 @@ export default function App() {
           onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
           javaScriptEnabled={true}
           domStorageEnabled={true}
-          onTouchStart={focusTempInput}
+          onMessage={(event) => {
+            if (event.nativeEvent.data === 'focusDetected') {
+              toggleKeyboard();
+            }
+          }}
+          injectedJavaScript={`
+            (function() {
+              document.addEventListener('focus', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                  window.ReactNativeWebView.postMessage('focusDetected');
+                }
+              }, true);
+            })();
+          `}
         />
-        <TextInput
-          ref={tempInputRef}
-          style={styles.tempInput}
-          value={tempInput}
-          onChangeText={handleTempInputChange}
-          autoCorrect={false}
-          autoCapitalize="none"
-          autoCompleteType="off"
-          textContentType="none"
-          keyboardType="visible-password"
-        />
-       <TouchableOpacity
-         style={styles.toggleButton}
-         onPress={toggleKeyboard}
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={toggleKeyboard}
         >
           <FontAwesome 
             name="keyboard-o"
