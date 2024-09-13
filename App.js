@@ -23,6 +23,8 @@ export default function App() {
   const colorScheme = useColorScheme();
   const [orientation, setOrientation] = useState('PORTRAIT');
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [isKeyboardToggling, setIsKeyboardToggling] = useState(false);
+  const [isKeyboardFocused, setIsKeyboardFocused] = useState(false);
 
   const isDarkMode = colorScheme === 'dark';
 
@@ -166,25 +168,63 @@ export default function App() {
     }
   };
 
-  const toggleKeyboard = () => {
+  const toggleKeyboard = useCallback(() => {
+    if (isKeyboardToggling) return;
+
+    setIsKeyboardToggling(true);
+
     if (isKeyboardVisible) {
       Keyboard.dismiss();
     } else {
-      // Show keyboard
       injectJavaScript(`
-        var inputElement = document.createElement('input');
-        inputElement.style.position = 'fixed';
-        inputElement.style.bottom = '0';
-        inputElement.style.left = '0';
-        inputElement.style.opacity = '0';
-        document.body.appendChild(inputElement);
-        inputElement.focus();
-        setTimeout(() => {
-          document.body.removeChild(inputElement);
-        }, 100);
+        (function() {
+          var inputElement = document.getElementById('keyboardFocusInput');
+          if (!inputElement) {
+            inputElement = document.createElement('input');
+            inputElement.id = 'keyboardFocusInput';
+            inputElement.style.position = 'fixed';
+            inputElement.style.bottom = '0';
+            inputElement.style.left = '0';
+            inputElement.style.opacity = '0';
+            document.body.appendChild(inputElement);
+          }
+          inputElement.focus();
+        })();
       `);
     }
-  };
+
+    setTimeout(() => {
+      setIsKeyboardToggling(false);
+    }, 300); // Debounce time
+  }, [isKeyboardToggling, isKeyboardVisible]);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => {
+        setKeyboardVisible(true);
+        setIsKeyboardFocused(true);
+      }
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setKeyboardVisible(false);
+        setIsKeyboardFocused(false);
+        injectJavaScript(`
+          var inputElement = document.getElementById('keyboardFocusInput');
+          if (inputElement) {
+            inputElement.blur();
+          }
+        `);
+      }
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   return (
     <MenuProvider>
@@ -236,15 +276,20 @@ export default function App() {
           javaScriptEnabled={true}
           domStorageEnabled={true}
           onMessage={(event) => {
-            if (event.nativeEvent.data === 'focusDetected') {
+            if (event.nativeEvent.data === 'focusDetected' && !isKeyboardVisible) {
               toggleKeyboard();
             }
           }}
           injectedJavaScript={`
             (function() {
+              var lastFocusTime = 0;
               document.addEventListener('focus', function(e) {
+                var now = Date.now();
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-                  window.ReactNativeWebView.postMessage('focusDetected');
+                  if (now - lastFocusTime > 300) { // Debounce time
+                    window.ReactNativeWebView.postMessage('focusDetected');
+                    lastFocusTime = now;
+                  }
                 }
               }, true);
             })();
@@ -261,6 +306,6 @@ export default function App() {
           />
         </TouchableOpacity>
       </View>
-    </MenuProvider>
-  );
-}
+      </MenuProvider>
+    );
+  }
