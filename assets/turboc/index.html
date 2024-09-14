@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="Turbo C++ Web - Run Turbo C++ in your browser using JS-DOS. Experience nostalgic programming with modern convenience.">
+    <meta name="keywords" content="Turbo C++, JS-DOS, online IDE, programming, nostalgia">
+    <meta name="author" content="Souhrud Reddy">
+    <title>Turbo C++ Web - Online Nostalgic Programming Experience</title>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #dos {
+            width: 100%;
+            height: 100%;
+            transition: height 0.3s ease;
+        }
+
+        #credit-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #032B44;
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #fff;
+            z-index: 1000;
+            transition: transform 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        #credit-bar.hidden {
+            transform: translateY(100%);
+        }
+
+        #credit-bar .close {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transition: background-color 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #credit-bar .close:hover {
+            background-color: rgba(255, 255, 255, 0.4);
+        }
+
+        #credit-bar .close::before {
+            content: "\00d7";
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        #browser-warning {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #fff;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            color: #000;
+            z-index: 1001;
+            font-size: 14px;
+            max-width: 80%;
+        }
+
+        #browser-warning:hover {
+            background-color: #FFA07A;
+        }
+
+        @media (max-width: 600px) {
+            #credit-bar {
+                font-size: 10px;
+            }
+            #browser-warning {
+                font-size: 12px;
+            }
+        }
+    </style>
+
+    <link rel="stylesheet" href="jsdos/js-dos.css">
+    <script src="jsdos/js-dos.js"></script>
+
+    <!-- Capacitor Core -->
+    <script src="https://unpkg.com/@capacitor/core@latest/dist/capacitor.js"></script>
+    <!-- Capacitor Plugins -->
+    <script src="https://unpkg.com/@capacitor/keyboard@latest/dist/plugin.js"></script>
+    <script src="https://unpkg.com/@capacitor/status-bar@latest/dist/plugin.js"></script>
+</head>
+<body>
+    <main id="dos" role="main"></main>
+
+    <footer id="credit-bar">
+        <span class="close" aria-label="Close credits"></span>
+        <p>By <a href="https://sounddrill31.github.io/" target="_blank" rel="noopener noreferrer">Souhrud Reddy</a></p>
+        <p>Credit to <a href="https://js-dos.com" target="_blank" rel="noopener noreferrer">JS-Dos team</a> for Everything,</p>
+        <p><a href="https://github.com/AvinashReddy3108/TurboCPP4Linux" target="_blank" rel="noopener noreferrer">AvinashReddy3108</a> and 
+        <a href="https://github.com/vineetchoudhary/TurboCPP" target="_blank" rel="noopener noreferrer">vineetchoudhary</a> for the DOSBox wrapper projects</p>
+    </footer>
+
+    <script>
+        const dosElement = document.getElementById("dos");
+        const creditBar = document.getElementById("credit-bar");
+        const closeButton = creditBar.querySelector(".close");
+
+        function adjustDosHeight() {
+            const creditBarHeight = creditBar.offsetHeight;
+            dosElement.style.height = `calc(100% - ${creditBarHeight}px)`;
+        }
+
+        function toggleCreditBar() {
+            creditBar.classList.toggle("hidden");
+            if (creditBar.classList.contains("hidden")) {
+                dosElement.style.height = "100%";
+            } else {
+                adjustDosHeight();
+            }
+        }
+
+        // Initial adjustment
+        adjustDosHeight();
+
+        // Adjust on window resize
+        window.addEventListener("resize", adjustDosHeight);
+
+        // Toggle credit bar on close button click
+        closeButton.addEventListener("click", toggleCreditBar);
+
+        Dos(dosElement, {
+            url: "turbocpp-831b2f5.jsdos",
+        }).then((ci) => {
+            console.log("DOS initialized");
+            // Adjust canvas size for mobile
+            const canvas = document.querySelector("#dos canvas");
+            if (canvas) {
+                canvas.style.width = "100%";
+                canvas.style.height = "100%";
+            }
+        });
+
+        var userAgent = navigator.userAgent;
+        var isChromium = userAgent.indexOf("Chromium") > -1 || userAgent.indexOf("Chrome") > -1;
+
+        if (!isChromium) {
+            var warningMessage = document.createElement("div");
+            warningMessage.id = "browser-warning";
+            warningMessage.innerHTML = "<p>Non Chromium Browsers are not fully supported</p><p>Plus and Equals symbols not working on Firefox</p>";
+            document.body.appendChild(warningMessage);
+
+            warningMessage.addEventListener("click", function() {
+                this.style.display = "none";
+            });
+
+            setTimeout(function() {
+                warningMessage.style.display = "none";
+            }, 45000);
+        }
+
+        // Capacitor-specific code
+        document.addEventListener('deviceready', onDeviceReady, false);
+
+        function onDeviceReady() {
+            console.log('Running cordova-' + cordova.platformId + '@' + cordova.version);
+            
+            // Hide the status bar on iOS devices
+            if (window.StatusBar) {
+                StatusBar.hide();
+            }
+
+            // Prevent the keyboard from shrinking the WebView on iOS
+            if (window.Keyboard) {
+                Keyboard.shrinkView(false);
+                Keyboard.hideFormAccessoryBar(true);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,12 +1,10 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import Constants from 'expo-constants';
-import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
 import { FontAwesome } from '@expo/vector-icons';
-import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -24,7 +22,6 @@ export default function App() {
   const colorScheme = useColorScheme();
   const [orientation, setOrientation] = useState('PORTRAIT');
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const [baseUrl, setBaseUrl] = useState(null);
 
   const isDarkMode = colorScheme === 'dark';
 
@@ -38,31 +35,30 @@ export default function App() {
   useEffect(() => {
     const loadTurboCFiles = async () => {
       try {
-        const turboCDir = FileSystem.documentDirectory + 'turboc/';
-        await FileSystem.makeDirectoryAsync(turboCDir, { intermediates: true });
-
-        const assetFiles = [
-          require('./turboc/index.html'),
-          require('./turboc/jsdos/js-dos.js'),
-          require('./turboc/jsdos/js-dos.css'),
-          // Add all other files in the turboc directory here
-        ];
-
-        for (const asset of assetFiles) {
-          if (asset) {
-            const { uri } = Asset.fromModule(asset);
-            const fileName = uri.split('/').pop();
-            const destinationUri = `${turboCDir}${fileName}`;
-            await FileSystem.downloadAsync(uri, destinationUri);
-          }
+        let content = '';
+        if (Platform.OS === 'web') {
+          // For web, we'll use a placeholder HTML content
+          content = `
+            <html>
+              <body>
+                <h1>TurboC Emulator</h1>
+                <p>This is a placeholder for the TurboC emulator on web.</p>
+              </body>
+            </html>
+          `;
+        } else {
+          // For mobile platforms, we'll try to load the HTML content from the asset
+          const assetUri = require('./assets/turboc/index.html');
+          content = await FileSystem.readAsStringAsync(assetUri, { encoding: FileSystem.EncodingType.UTF8 });
         }
-
-        setBaseUrl(FileSystem.documentDirectory + 'turboc/');
-        const indexHtmlPath = `${turboCDir}index.html`;
-        const indexHtmlContent = await FileSystem.readAsStringAsync(indexHtmlPath);
-        setHtmlContent(indexHtmlContent);
+        setHtmlContent(content);
       } catch (error) {
         console.error('Failed to load TurboC files:', error);
+        Alert.alert(
+          'Error',
+          'Failed to load TurboC files. Please check your file system and try again.',
+          [{ text: 'OK' }]
+        );
       }
     };
 
@@ -122,35 +118,8 @@ export default function App() {
             which: ${mappedChar.keyCode},
             bubbles: true
           });
-          window.dispatchEvent(event);
-          var activeElement = window.document.activeElement;
-          if (activeElement && activeElement.isContentEditable) {
-            activeElement.textContent += '${mappedChar.char}';
-          } else if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-            var start = activeElement.selectionStart;
-            var end = activeElement.selectionEnd;
-            activeElement.value = activeElement.value.substring(0, start) + '${mappedChar.char}' + activeElement.value.substring(end);
-            activeElement.selectionStart = activeElement.selectionEnd = start + 1;
-          }
-        })();
-      `;
-      webViewRef.current?.injectJavaScript(jsCode);
-    } else if (text.length < tempInput.length) {
-      const jsCode = `
-        (function() {
-          var activeElement = window.document.activeElement;
-          if (activeElement && activeElement.isContentEditable) {
-            activeElement.textContent = activeElement.textContent.slice(0, -1);
-          } else if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA')) {
-            var start = activeElement.selectionStart;
-            var end = activeElement.selectionEnd;
-            if (start === end) {
-              activeElement.value = activeElement.value.substring(0, start - 1) + activeElement.value.substring(end);
-              activeElement.selectionStart = activeElement.selectionEnd = start - 1;
-            } else {
-              activeElement.value = activeElement.value.substring(0, start) + activeElement.value.substring(end);
-              activeElement.selectionStart = activeElement.selectionEnd = start;
-            }
+          if (typeof window !== 'undefined' && window.dispatchEvent) {
+            window.dispatchEvent(event);
           }
         })();
       `;
@@ -158,7 +127,6 @@ export default function App() {
     }
     setTempInput(text);
   };
-
 
   const styles = StyleSheet.create({
     container: {
@@ -211,18 +179,22 @@ export default function App() {
 
   const handleMenuAction = (action) => {
     const jsCode = {
-      home: `window.location.href = 'about:blank';`,
-      open: `(function() { var event = new KeyboardEvent('keydown', { key: 'F3', keyCode: 114 }); window.dispatchEvent(event); })();`,
-      save: `(function() { var event = new KeyboardEvent('keydown', { key: 'F2', keyCode: 113 }); window.dispatchEvent(event); })();`,
-      undo: `(function() { var event = new KeyboardEvent('keydown', { key: 'Z', keyCode: 90, altKey: true }); window.dispatchEvent(event); })();`,
-      redo: `(function() { var event = new KeyboardEvent('keydown', { key: 'Z', keyCode: 90, shiftKey: true, altKey: true }); window.dispatchEvent(event); })();`,
-      compile: `(function() { var event = new KeyboardEvent('keydown', { key: 'F9', keyCode: 120, altKey: true }); window.dispatchEvent(event); })();`,
-      run: `(function() { var event = new KeyboardEvent('keydown', { key: 'F9', keyCode: 120, ctrlKey: true }); window.dispatchEvent(event); })();`,
-      output: `(function() { var event = new KeyboardEvent('keydown', { key: 'F5', keyCode: 116, altKey: true }); window.dispatchEvent(event); })();`,
+      home: `if (typeof window !== 'undefined') { window.location.href = 'about:blank'; }`,
+      open: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'F3', keyCode: 114 }); window.dispatchEvent(event); } })();`,
+      save: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'F2', keyCode: 113 }); window.dispatchEvent(event); } })();`,
+      undo: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'Z', keyCode: 90, altKey: true }); window.dispatchEvent(event); } })();`,
+      redo: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'Z', keyCode: 90, shiftKey: true, altKey: true }); window.dispatchEvent(event); } })();`,
+      compile: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'F9', keyCode: 120, altKey: true }); window.dispatchEvent(event); } })();`,
+      run: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'F9', keyCode: 120, ctrlKey: true }); window.dispatchEvent(event); } })();`,
+      output: `(function() { if (typeof window !== 'undefined') { var event = new KeyboardEvent('keydown', { key: 'F5', keyCode: 116, altKey: true }); window.dispatchEvent(event); } })();`,
     };
 
     if (action === 'quit') {
-      BackHandler.exitApp();
+      if (Platform.OS === 'web') {
+        window.close();
+      } else {
+        BackHandler.exitApp();
+      }
     } else if (jsCode[action]) {
       webViewRef.current?.injectJavaScript(jsCode[action]);
     }
@@ -239,7 +211,7 @@ export default function App() {
   const Content = () => (
     <WebView
       ref={webViewRef}
-      source={{ html: htmlContent, baseUrl: baseUrl }}
+      source={{ html: htmlContent }}
       style={styles.content}
       javaScriptEnabled={true}
       domStorageEnabled={true}
@@ -249,7 +221,6 @@ export default function App() {
         setCanGoBack(navState.canGoBack);
       }}
       onMessage={(event) => {
-        // Handle any messages from the WebView here
         console.log('Message from WebView:', event.nativeEvent.data);
       }}
     />

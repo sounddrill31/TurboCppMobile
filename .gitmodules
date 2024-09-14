@@ -1,4 +1,4 @@
 [submodule "turboc"]
-	path = turboc
+	path = assets/turboc
 	url = https://github.com/sounddrill31/TurboCPP-Web
 	branch = offline-mobile-html
