@@ -1,14 +1,12 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, useColorScheme, BackHandler, Platform, Dimensions, Keyboard, Text, TextInput } from 'react-native';
-import { WebView } from 'react-native-webview';
-import { FontAwesome } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import * as Linking from 'expo-linking';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
+import { FontAwesome } from '@expo/vector-icons';
 
-const HOME_URL = 'https://turboc.pages.dev';
-const HOME_DOMAIN = 'turboc.pages.dev';
+const HOME_URL = '/turboc/index.html';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768;
@@ -17,7 +15,6 @@ const TOGGLE_BUTTON_SIZE = IS_LARGE_DEVICE ? 70 : 60;
 const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
 export default function App() {
-  const webViewRef = useRef(null);
   const [tempInput, setTempInput] = useState('');
   const tempInputRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -34,25 +31,6 @@ export default function App() {
     menuBackground: isDarkMode ? '#333333' : '#E0E0E0',
     toggleButtonBackground: isDarkMode ? 'rgba(30, 30, 30, 0.8)' : 'rgba(245, 245, 245, 0.8)',
   };
-
-  const handleNavigationStateChange = (navState) => {
-    setCanGoBack(navState.canGoBack);
-    setCurrentUrl(navState.url);
-  };
-
-  const getDomainFromUrl = (url) => {
-    const matches = url.match(/^https?:\/\/([^/?#]+)(?:[/?#]|$)/i);
-    return matches && matches[1];
-  };
-
-  const handleShouldStartLoadWithRequest = useCallback((event) => {
-    const domain = getDomainFromUrl(event.url);
-    if (domain && domain.toLowerCase() !== HOME_DOMAIN) {
-      Linking.openURL(event.url);
-      return false;
-    }
-    return true;
-  }, []);
 
   useEffect(() => {
     const subscription = ScreenOrientation.addOrientationChangeListener((event) => {
@@ -79,7 +57,7 @@ export default function App() {
     if (Platform.OS === 'android') {
       const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
         if (canGoBack) {
-          webViewRef.current.goBack();
+          // Handle back navigation
           return true;
         }
         return false;
@@ -89,20 +67,6 @@ export default function App() {
     }
   }, [canGoBack]);
 
-  const injectJavaScript = (code) => {
-    webViewRef.current.injectJavaScript(code);
-  };
-
-/*  const keyboardMap = {
-    "'": { char: '"', keyCode: 222 },
-    '"': { char: "'", keyCode: 222 },
-    '`': { char: '~', keyCode: 192 },
-    '~': { char: '`', keyCode: 192 },
-    '@': { char: '"', keyCode: 50 },  // For UK layout
-    '#': { char: '£', keyCode: 51 },  // For UK layout
-    '\\': { char: '|', keyCode: 220 },
-    '|': { char: '\\', keyCode: 220 },
-  };*/
   const keyboardMap = {
     "~": { char: '"', keyCode: 222 },
     '`': { char: "'", keyCode: 222 },
@@ -113,18 +77,17 @@ export default function App() {
       const newChar = text.slice(-1);
       const mappedChar = keyboardMap[newChar] || { char: newChar, keyCode: newChar.charCodeAt(0) };
 
-      injectJavaScript(`
-        var event = new KeyboardEvent('keydown', {
-          key: '${mappedChar.char}',
-          keyCode: ${mappedChar.keyCode},
-          which: ${mappedChar.keyCode},
-          bubbles: true
-        });
-        document.dispatchEvent(event);
-        document.execCommand("insertText", false, "${mappedChar.char}");
-      `);
+      // Dispatch event to the document
+      const event = new KeyboardEvent('keydown', {
+        key: mappedChar.char,
+        keyCode: mappedChar.keyCode,
+        which: mappedChar.keyCode,
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+      document.execCommand("insertText", false, mappedChar.char);
     } else if (text.length < tempInput.length) {
-      injectJavaScript('document.execCommand("delete", false, "");');
+      document.execCommand("delete", false, "");
     }
     setTempInput(text);
   };
@@ -141,7 +104,7 @@ export default function App() {
     statusBarPlaceholder: {
       height: Constants.statusBarHeight,
     },
-    webview: {
+    content: {
       flex: 1,
     },
     menuContainer: {
@@ -185,28 +148,35 @@ export default function App() {
   const handleMenuAction = (action) => {
     switch (action) {
       case 'home':
-        webViewRef.current.loadUrl(HOME_URL);
+        // Navigate to home
         break;
       case 'open':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F3", keyCode: 114 })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F3", keyCode: 114 }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "F3", keyCode: 114 }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "F3", keyCode: 114 }));
         break;
       case 'save':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", keyCode: 113 })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F2", keyCode: 113 }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", keyCode: 113 }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "F2", keyCode: 113 }));
         break;
       case 'undo':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, altKey: true }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, altKey: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, altKey: true }));
         break;
       case 'redo':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, shiftKey: true, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "Z", keyCode: 90, shiftKey: true, altKey: true }));
         break;
       case 'compile':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, altKey: true }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, altKey: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, altKey: true }));
         break;
       case 'run':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, ctrlKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, ctrlKey: true }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "F9", keyCode: 120, ctrlKey: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "F9", keyCode: 120, ctrlKey: true }));
         break;
       case 'output':
-        injectJavaScript('window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", keyCode: 116, altKey: true })); window.dispatchEvent(new KeyboardEvent("keyup", { key: "F5", keyCode: 116, altKey: true }));');
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", keyCode: 116, altKey: true }));
+        window.dispatchEvent(new KeyboardEvent("keyup", { key: "F5", keyCode: 116, altKey: true }));
         break;
       case 'quit':
         BackHandler.exitApp();
@@ -263,16 +233,12 @@ export default function App() {
           </Menu>
         </View>
 
-        <WebView
-          ref={webViewRef}
-          source={{ uri: currentUrl }}
-          style={styles.webview}
-          onNavigationStateChange={handleNavigationStateChange}
-          onShouldStartLoadWithRequest={handleShouldStartLoadWithRequest}
-          javaScriptEnabled={true}
-          domStorageEnabled={true}
-          onTouchStart={focusTempInput}
-        />
+        <View style={styles.content}>
+          {/* This is where you'd render your local HTML content */}
+          {/* For web, you might use an iframe or directly insert the HTML */}
+          {/* For native, you'd need to parse and render the HTML content */}
+        </View>
+
         <TextInput
           ref={tempInputRef}
           style={styles.tempInput}
@@ -284,9 +250,9 @@ export default function App() {
           textContentType="none"
           keyboardType="visible-password"
         />
-       <TouchableOpacity
-         style={styles.toggleButton}
-         onPress={toggleKeyboard}
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={toggleKeyboard}
         >
           <FontAwesome 
             name="keyboard-o"
