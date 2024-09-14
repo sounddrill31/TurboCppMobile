@@ -27,11 +27,13 @@ nvm use node
 ### Install Deps
 
 ```
-npx expo install react-native-webview @expo/vector-icons expo-constants expo-linking expo-screen-orientation react-native-popup-menu expo-system-ui
+npm install
 ```
 
 ### Run App
+```
 npx expo start --tunnel
+```
 
 Use the app to connect to it
 
