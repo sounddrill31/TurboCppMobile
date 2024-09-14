@@ -5,7 +5,7 @@ import Constants from 'expo-constants';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Menu, MenuOptions, MenuOption, MenuTrigger, MenuProvider } from 'react-native-popup-menu';
 import { FontAwesome } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { Asset } from 'expo-asset';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768;
@@ -49,19 +49,14 @@ export default function App() {
     const loadTurboCFiles = async () => {
       try {
         if (Platform.OS !== 'web') {
-          const fileUri = FileSystem.documentDirectory + 'turboc_index.html';
-          const fileInfo = await FileSystem.getInfoAsync(fileUri);
-          
-          if (!fileInfo.exists) {
-            // If the file doesn't exist, we'll create it with the placeholder content
-            await FileSystem.writeAsStringAsync(fileUri, placeholderHtml);
-          }
-          
-          // Now read the file content
-          const content = await FileSystem.readAsStringAsync(fileUri);
+          const asset = Asset.fromModule(require('./assets/turboc/index.html'));
+          await asset.downloadAsync();
+          const content = await fetch(asset.uri).then(response => response.text());
           setHtmlContent(content);
+        } else {
+          // For web, we'll use the placeholder HTML content
+          setHtmlContent(placeholderHtml);
         }
-        // For web, we'll use the placeholder HTML content that's already set
       } catch (error) {
         console.error('Failed to load TurboC files:', error);
         Alert.alert(
