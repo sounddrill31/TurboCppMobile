@@ -13,9 +13,22 @@ const IS_LARGE_DEVICE = SCREEN_WIDTH >= 768 || SCREEN_HEIGHT >= 768;
 const TOGGLE_BUTTON_SIZE = IS_LARGE_DEVICE ? 70 : 60;
 const TOGGLE_ICON_SIZE = IS_LARGE_DEVICE ? 38 : 34;
 
+// Placeholder HTML content
+const placeholderHtml = `
+<html>
+  <body style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: Arial, sans-serif;">
+    <div style="text-align: center;">
+      <h1>TurboC Emulator</h1>
+      <p>This is a placeholder for the TurboC emulator.</p>
+      <p>The actual emulator content will be loaded here.</p>
+    </div>
+  </body>
+</html>
+`;
+
 export default function App() {
   const [tempInput, setTempInput] = useState('');
-  const [htmlContent, setHtmlContent] = useState('');
+  const [htmlContent, setHtmlContent] = useState(placeholderHtml);
   const tempInputRef = useRef(null);
   const webViewRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
@@ -35,30 +48,29 @@ export default function App() {
   useEffect(() => {
     const loadTurboCFiles = async () => {
       try {
-        let content = '';
-        if (Platform.OS === 'web') {
-          // For web, we'll use a placeholder HTML content
-          content = `
-            <html>
-              <body>
-                <h1>TurboC Emulator</h1>
-                <p>This is a placeholder for the TurboC emulator on web.</p>
-              </body>
-            </html>
-          `;
-        } else {
-          // For mobile platforms, we'll try to load the HTML content from the asset
-          const assetUri = require('./assets/turboc/index.html');
-          content = await FileSystem.readAsStringAsync(assetUri, { encoding: FileSystem.EncodingType.UTF8 });
+        if (Platform.OS !== 'web') {
+          const fileUri = FileSystem.documentDirectory + 'turboc_index.html';
+          const fileInfo = await FileSystem.getInfoAsync(fileUri);
+          
+          if (!fileInfo.exists) {
+            // If the file doesn't exist, we'll create it with the placeholder content
+            await FileSystem.writeAsStringAsync(fileUri, placeholderHtml);
+          }
+          
+          // Now read the file content
+          const content = await FileSystem.readAsStringAsync(fileUri);
+          setHtmlContent(content);
         }
-        setHtmlContent(content);
+        // For web, we'll use the placeholder HTML content that's already set
       } catch (error) {
         console.error('Failed to load TurboC files:', error);
         Alert.alert(
           'Error',
-          'Failed to load TurboC files. Please check your file system and try again.',
+          'Failed to load TurboC files. Using placeholder content.',
           [{ text: 'OK' }]
         );
+        // In case of error, we'll use the placeholder content
+        setHtmlContent(placeholderHtml);
       }
     };
 
@@ -215,8 +227,6 @@ export default function App() {
       style={styles.content}
       javaScriptEnabled={true}
       domStorageEnabled={true}
-      allowFileAccess={true}
-      allowUniversalAccessFromFileURLs={true}
       onNavigationStateChange={(navState) => {
         setCanGoBack(navState.canGoBack);
       }}
